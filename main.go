@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"kafkonnector_go/api/connectors"
 	"kafkonnector_go/commons/database"
 	"kafkonnector_go/config"
+	"kafkonnector_go/lib/connectors/routes"
+	"kafkonnector_go/lib/connectors/service"
 	"kafkonnector_go/lib/server"
 	"log"
 	"os"
@@ -29,10 +30,17 @@ func main() {
 		cancel()
 	}()
 
-	database.ConnectMongoDB(cfg.MongoURI)
-	connectors.Router()
+	if err := database.ConnectMongoDB(cfg.MongoURI); err != nil {
+		log.Fatal("Failed to connect to MongoDB:", err)
+	}
+	defer database.DisconnectMongoDB()
+
+	repo := database.ConnectorRepository(database.Client())
+
+	svc := service.NewService(repo)
+
+	routes.Router(svc)
 	server.StartServer(ctx)
 
 	<-ctx.Done()
-	return
 }
